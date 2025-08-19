@@ -57,10 +57,15 @@ export default function ExplorePage({ recordId }: { recordId: string }) {
     setGeneratingSummary(true);
 
     try {
+      const { content } = record; // Get content from current record state
       const summary = await getSummary(content);
       await dbContents.update(record.id, { summary }).catch(console.error);
 
-      setRecord({ ...record, summary });
+      // Use functional update to ensure we have the latest state
+      setRecord(prevRecord => {
+        if (!prevRecord) return prevRecord;
+        return { ...prevRecord, summary };
+      });
     } catch (err: any) {
       console.error(err);
       noApiKeyToast(err);

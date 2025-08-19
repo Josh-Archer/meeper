@@ -1,0 +1,29 @@
+version: "3.8"
+
+services:
+  whisper:
+    image: fedirz/faster-whisper-server:latest-cuda
+    container_name: whisper
+    restart: unless-stopped
+    # GPU access (Docker Desktop + NVIDIA toolkit required)
+    deploy: {}  # keep for compatibility; not used by docker compose
+    gpus: all
+    environment:
+      # optional: pre-pull models to this cache dir
+      - HF_HOME=/root/.cache/huggingface
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    # don't publish 8000, keep it internal; NGINX will be the public entry
+    expose:
+      - "8000"
+
+  proxy:
+    image: nginx:alpine
+    container_name: whisper-proxy
+    restart: unless-stopped
+    depends_on:
+      - whisper
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro

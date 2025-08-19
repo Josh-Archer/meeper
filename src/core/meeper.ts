@@ -8,6 +8,7 @@ import { dbRecords, dbContents } from "./db";
 import { getLangCode, syncTabRecordState } from "./session";
 import { getTabInfo } from "./utils";
 import { getOpenAiApiKey, NonWorkingApiKeyError } from "./openaiApiKey";
+import { getLLMProviderSettings } from "./providerSettings";
 
 const audioCtx = new AudioContext();
 
@@ -106,8 +107,13 @@ export async function recordMeeper(
   };
 
   const onAudio = async (audioFile: File) => {
-    const apiKey = await getOpenAiApiKey().catch(onError);
-    if (!apiKey) {
+    const settings = await getLLMProviderSettings();
+    const fullyLocal =
+      settings.provider === "ollama" && settings.transcriptionProvider === "custom";
+    const apiKey = fullyLocal
+      ? null
+      : await getOpenAiApiKey().catch(onError);
+    if (!apiKey && !fullyLocal) {
       await dbRecords.update(recordId, { lastSyncAt: Date.now() });
       return;
     }
@@ -120,7 +126,7 @@ export async function recordMeeper(
     const textPromise = retry(
       () =>
         requestWhisperOpenaiApi(audioFile, "transcriptions", {
-          apiKey,
+          apiKey: apiKey || undefined,
           prompt: whisperPrompt,
           language: savedLanguage !== "auto" ? savedLanguage : undefined,
         }).catch((err: AxiosError) => {

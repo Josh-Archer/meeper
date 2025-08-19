@@ -4,10 +4,32 @@ import { WEBSITE_URL } from "../config/env";
 
 import { Separator } from "./ui/separator";
 import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
 import { useApiKeyState } from "./ApiKeyDialog";
+import { useEffect, useState } from "react";
+import {
+  getLLMProviderSettings,
+  setLLMProviderSettings,
+  LLMProviderSettings,
+} from "../core/providerSettings";
 
 export default function SettingsPage() {
   const { apiKeyEntered, openApiKeyDialog } = useApiKeyState();
+  const [providerSettings, setProviderSettings] = useState<LLMProviderSettings | null>(null);
+  const [savingProvider, setSavingProvider] = useState(false);
+
+  useEffect(() => {
+    getLLMProviderSettings().then(setProviderSettings).catch(console.error);
+  }, []);
+
+  const updateSettings = async (patch: Partial<LLMProviderSettings>) => {
+    if (!providerSettings) return;
+    setSavingProvider(true);
+    const merged = await setLLMProviderSettings(patch).catch(console.error);
+    if (merged) setProviderSettings(merged);
+    setSavingProvider(false);
+  };
 
   return (
     <div className={classNames("min-h-screen flex flex-col items-center")}>
@@ -33,7 +55,7 @@ export default function SettingsPage() {
         <Separator orientation="horizontal" className="h-px w-full" />
       </div>
 
-      <article className="my-8 w-full prose prose-slate">
+  <article className="my-8 w-full prose prose-slate">
         <h2>OpenAI API Key</h2>
 
         <p>
@@ -48,6 +70,121 @@ export default function SettingsPage() {
 
           {apiKeyEntered && <div className="ml-4">✅ Entered.</div>}
         </div>
+
+        <h2>LLM Provider</h2>
+        <p>Select which Large Language Model provider to use for summaries.</p>
+        {providerSettings && (
+          <div className="not-prose mb-6 space-y-4 p-4 border rounded-lg">
+            <div className="flex items-center space-x-4">
+              <Button
+                type="button"
+                variant={providerSettings.provider === "openai" ? "default" : "outline"}
+                onClick={() => updateSettings({ provider: "openai" })}
+                disabled={savingProvider}
+              >
+                OpenAI
+              </Button>
+              <Button
+                type="button"
+                variant={providerSettings.provider === "ollama" ? "default" : "outline"}
+                onClick={() => updateSettings({ provider: "ollama" })}
+                disabled={savingProvider}
+              >
+                Ollama (local)
+              </Button>
+            </div>
+            {providerSettings.provider === "ollama" && (
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <Label htmlFor="ollamaModel">Ollama Model</Label>
+                  <Input
+                    id="ollamaModel"
+                    value={providerSettings.ollamaModel || ""}
+                    placeholder="llama3.1"
+                    onChange={(e) => updateSettings({ ollamaModel: e.target.value })}
+                    disabled={savingProvider}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="ollamaBaseUrl">Ollama Base URL</Label>
+                  <Input
+                    id="ollamaBaseUrl"
+                    value={providerSettings.ollamaBaseUrl || ""}
+                    placeholder="http://localhost:11434"
+                    onChange={(e) => updateSettings({ ollamaBaseUrl: e.target.value })}
+                    disabled={savingProvider}
+                  />
+                </div>
+              </div>
+            )}
+            {providerSettings.provider === "ollama" && (
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p>
+                  Ensure you have <code>ollama</code> running locally and the model pulled: e.g. run
+                  <code> ollama pull {providerSettings.ollamaModel}</code>.
+                </p>
+                <p>
+                  <strong>WSL Users:</strong> If using WSL, you may need to:
+                  1) Run <code>OLLAMA_HOST=0.0.0.0:11434 ollama serve</code>, and
+                  2) Use your WSL IP (e.g., <code>http://172.x.x.x:11434</code>) instead of localhost.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {providerSettings && (
+          <div className="not-prose mb-10 space-y-4 p-4 border rounded-lg">
+            <h3 className="mt-0">Transcription Provider (Whisper)</h3>
+            <div className="flex items-center space-x-4">
+              <Button
+                type="button"
+                variant={providerSettings.transcriptionProvider === "openai" ? "default" : "outline"}
+                onClick={() => updateSettings({ transcriptionProvider: "openai" })}
+                disabled={savingProvider}
+              >
+                OpenAI Cloud
+              </Button>
+              <Button
+                type="button"
+                variant={providerSettings.transcriptionProvider === "custom" ? "default" : "outline"}
+                onClick={() => updateSettings({ transcriptionProvider: "custom" })}
+                disabled={savingProvider}
+              >
+                Custom (local)
+              </Button>
+            </div>
+            {providerSettings.transcriptionProvider === "custom" && (
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="md:col-span-1">
+                  <Label htmlFor="trModel">Model</Label>
+                  <Input
+                    id="trModel"
+                    value={providerSettings.transcriptionModel || ""}
+                    placeholder="whisper-1"
+                    onChange={(e) => updateSettings({ transcriptionModel: e.target.value })}
+                    disabled={savingProvider}
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <Label htmlFor="trBase">Base URL</Label>
+                  <Input
+                    id="trBase"
+                    value={providerSettings.transcriptionBaseUrl || ""}
+                    placeholder="http://localhost:8080"
+                    onChange={(e) => updateSettings({ transcriptionBaseUrl: e.target.value })}
+                    disabled={savingProvider}
+                  />
+                </div>
+              </div>
+            )}
+            {providerSettings.transcriptionProvider === "custom" && (
+              <p className="text-xs text-muted-foreground">
+                Provide an OpenAI-compatible endpoint exposing <code>/v1/audio/transcriptions</code>.
+              </p>
+            )}
+          </div>
+        )}
 
         {WEBSITE_URL && (
           <>

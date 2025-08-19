@@ -35,6 +35,7 @@ import {
   setOpenAiApiKey,
   validateApiKey,
 } from "../core/openaiApiKey";
+import { getLLMProviderSettings } from "../core/providerSettings";
 import {
   Collapsible,
   CollapsibleContent,
@@ -62,9 +63,18 @@ export function useApiKeyState() {
   );
 
   useEffect(() => {
-    getOpenAiApiKey()
-      .then(() => setApiKeyEntered(true))
-      .catch(() => {});
+    (async () => {
+      const settings = await getLLMProviderSettings();
+      const requiresKey =
+        settings.provider === "openai" || settings.transcriptionProvider === "openai";
+      if (!requiresKey) {
+        setApiKeyEntered(true); // treat as satisfied in fully local mode
+        return;
+      }
+      getOpenAiApiKey()
+        .then(() => setApiKeyEntered(true))
+        .catch(() => {});
+    })();
   }, [setApiKeyEntered]);
 
   useEffect(() => {
@@ -90,7 +100,18 @@ export function useNoApiKeyToast() {
 
   const latestToastInstanceRef = useRef<any>();
 
-  const apiKeyToast = useCallback((err?: any) => {
+  const apiKeyToast = useCallback(async (err?: any) => {
+    // Determine if key is actually required
+    try {
+      const settings = await getLLMProviderSettings();
+      const requiresKey =
+        settings.provider === "openai" || settings.transcriptionProvider === "openai";
+      if (!requiresKey) {
+        // Suppress toast entirely in fully local mode
+        return;
+      }
+    } catch {}
+
     if (!focusedRef.current) {
       focusedRef.current = true;
       focusCurrentTab();
@@ -175,11 +196,18 @@ export function ApiKeyDialogProvider({ children }: PropsWithChildren) {
   const setOpened = ctxState[1];
 
   useEffect(() => {
-    getOpenAiApiKey().catch(() => {
-      if (location.hash.includes("welcome")) return;
-
-      setOpened("default");
-    });
+    (async () => {
+      try {
+        const settings = await getLLMProviderSettings();
+        const requiresKey =
+          settings.provider === "openai" || settings.transcriptionProvider === "openai";
+        if (!requiresKey) return; // fully local mode, do not prompt
+        await getOpenAiApiKey();
+      } catch {
+        if (location.hash.includes("welcome")) return;
+        setOpened("default");
+      }
+    })();
   }, []);
 
   return (
@@ -203,7 +231,7 @@ function ApiKeyDialog() {
   return (
     <Dialog
       open={Boolean(opened)}
-      onOpenChange={(open) => setOpened(open ? "default" : null)}
+      onOpenChange={(open: boolean) => setOpened(open ? "default" : null)}
     >
       <ApiKeyDialogContent
         key={String(opened)}
@@ -268,7 +296,7 @@ function ApiKeyDialogContent({
   return (
     <DialogContent
       className="sm:max-w-[26rem]"
-      onPointerDownOutside={(evt) => evt.preventDefault()}
+      onPointerDownOutside={(evt: any) => evt.preventDefault()}
     >
       <form onSubmit={handleSubmit}>
         <DialogHeader>
@@ -288,7 +316,7 @@ function ApiKeyDialogContent({
 
               {!errorState && (
                 <ul className="list-disc pl-4 text-left space-y-2">
-                  <li>You need an OpenAI API Key to use Meeper.</li>
+                  <LocalModeAwareKeyRequirement />
                   <li>
                     Your API Key is stored locally on your browser and
                     encrypted, and never sent anywhere else.
@@ -497,3 +525,23 @@ const OpenAIIcon = (props: SVGProps<SVGSVGElement>) => (
     ></path>
   </svg>
 );
+
+function LocalModeAwareKeyRequirement() {
+  const [text, setText] = useState<string>(
+    "You need an OpenAI API Key to use Meeper.",
+  );
+  useEffect(() => {
+    getLLMProviderSettings()
+      .then((s) => {
+        const requiresKey =
+          s.provider === "openai" || s.transcriptionProvider === "openai";
+        if (!requiresKey) {
+          setText(
+            "Fully local mode detected (Ollama + custom transcription). API key is optional.",
+          );
+        }
+      })
+      .catch(() => {});
+  }, []);
+  return <li>{text}</li>;
+}

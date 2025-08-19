@@ -1,11 +1,20 @@
 import memoizeOne from "memoize-one";
-import { Configuration, OpenAIApi } from "openai";
 import { decrypt, encrypt } from "../lib/encryption";
 import { retry } from "../lib/system";
+import { getLLMProviderSettings } from "./providerSettings";
 
 const OPENAI_API_KEY = "_oak";
 
 export const getOpenAiApiKey = memoizeOne(async () => {
+  const settings = await getLLMProviderSettings();
+  const requiresKey =
+    settings.provider === "openai" || settings.transcriptionProvider === "openai";
+
+  if (!requiresKey) {
+    // Fully local mode – skip key requirement
+    return null;
+  }
+
   const { [OPENAI_API_KEY]: encrypted } = await chrome.storage.local.get(
     OPENAI_API_KEY,
   );
@@ -37,10 +46,26 @@ export async function setOpenAiApiKey(apiKey: string | null) {
 
 export async function validateApiKey(apiKey: string) {
   try {
-    const openai = new OpenAIApi(new Configuration({ apiKey }));
-    await retry(() => openai.listModels(), 0, 2);
+    await retry(
+      async () => {
+        const res = await fetch("https://api.openai.com/v1/models", {
+          headers: { Authorization: `Bearer ${apiKey}` },
+        });
+        if (res.status === 401 || res.status === 403) {
+          throw new InvalidApiKeyError("Unauthorized: invalid API key");
+        }
+        if (!res.ok) {
+          throw new Error(`OpenAI validate failed: ${res.status}`);
+        }
+        // minimal body check (avoid bundling types / SDK)
+        await res.json().catch(() => {});
+      },
+      0,
+      2,
+    );
   } catch (err: any) {
-    throw new InvalidApiKeyError(err?.message);
+    if (err instanceof InvalidApiKeyError) throw err;
+    throw new InvalidApiKeyError(err?.message || "Failed to validate API key");
   }
 }
 
