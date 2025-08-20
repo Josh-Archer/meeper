@@ -77,12 +77,14 @@ export default function ExplorePage({ recordId }: { recordId: string }) {
 
     const exportToObsidian = useCallback(() => {
       if (!record?.summary) return;
+
       const safeTitle = (record.tab.title || "meeting")
         .replace(/[\\/:*?"<>|]/g, "-")
         .slice(0, 100);
-      const fileName = `${safeTitle}-${new Date(record.createdAt).toISOString()}`;
+      const noteName = `${safeTitle}-${new Date(record.createdAt).toISOString()}.md`;
       const content = `# ${record.tab.title || "Meeting"}\n\n${record.summary}`;
-      const url = `obsidian://new?file=${encodeURIComponent(fileName)}&content=${encodeURIComponent(content)}`;
+      const url = `obsidian://new?name=${encodeURIComponent(noteName)}&content=${encodeURIComponent(content)}`;
+
       try {
         chrome.tabs.create({ url });
       } catch {
