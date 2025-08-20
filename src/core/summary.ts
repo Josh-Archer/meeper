@@ -7,8 +7,10 @@ import { getOpenAiApiKey } from "./openaiApiKey";
 import { getLLMProviderSettings } from "./providerSettings";
 import { WHISPER_LANG_MAP } from "../config/lang";
 
-export async function getSummary(content: string[]) {
+export async function getSummary(content: string[], context?: string) {
   const settings = await getLLMProviderSettings();
+
+  const contextSection = context ? `\nContext:\n${context}\n` : "";
 
   if (settings.provider === "ollama") {
     // Simplified Ollama implementation without LangChain complexity
@@ -59,7 +61,7 @@ export async function getSummary(content: string[]) {
     // Process chunks individually
     const summaries: string[] = [];
     for (const chunk of chunks) {
-      const mapPrompt = `You are assisting in summarizing a meeting. Summarize the following part of a meeting transcript in ${lang}:
+      const mapPrompt = `You are assisting in summarizing a meeting.${contextSection}Summarize the following part of a meeting transcript in ${lang}:
 
 Instructions:
 - Focus on main points, key discussions, and important actions mentioned.
@@ -81,7 +83,7 @@ ${chunk}
     if (summaries.length === 1) {
       return summaries[0];
     } else {
-      const combinePrompt = `You are an expert meeting assistant. Create a professional, organized summary of the full meeting based on these partial summaries in ${lang}.
+      const combinePrompt = `You are an expert meeting assistant.${contextSection}Create a professional, organized summary of the full meeting based on these partial summaries in ${lang}.
 
 Instructions:
 - Create a comprehensive yet concise summary
@@ -125,7 +127,7 @@ ${summaries.join("\n\n")}
     const lang = WHISPER_LANG_MAP.get(langCode) ?? "English";
 
     const mapPrompt = PromptTemplate.fromTemplate(`
-You are assisting in summarizing a meeting. Summarize the following part of a meeting transcript in ${lang}:
+You are assisting in summarizing a meeting.${contextSection}Summarize the following part of a meeting transcript in ${lang}:
 
 Instructions:
 - Focus on main points, key discussions, and important actions mentioned.
@@ -139,7 +141,7 @@ Meeting Segment:
 ------------`);
 
     const combinePrompt = PromptTemplate.fromTemplate(`
-You are an expert meeting assistant. Create a professional, organized summary of the full meeting based on these partial summaries in ${lang}.
+You are an expert meeting assistant.${contextSection}Create a professional, organized summary of the full meeting based on these partial summaries in ${lang}.
 
 Instructions:
 - Create a comprehensive yet concise summary
