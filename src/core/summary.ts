@@ -9,6 +9,7 @@ import { WHISPER_LANG_MAP } from "../config/lang";
 
 export async function getSummary(content: string[]) {
   const settings = await getLLMProviderSettings();
+  const mode = settings.summaryMode || "meeting";
 
   if (settings.provider === "ollama") {
     // Simplified Ollama implementation without LangChain complexity
@@ -59,7 +60,21 @@ export async function getSummary(content: string[]) {
     // Process chunks individually
     const summaries: string[] = [];
     for (const chunk of chunks) {
-      const mapPrompt = `You are assisting in summarizing a meeting. Summarize the following part of a meeting transcript in ${lang}:
+      const mapPrompt =
+        mode === "study"
+          ? `You are assisting a student in studying lecture notes. Summarize the following part of a lecture transcript in ${lang}:
+
+Instructions:
+- Capture all major points and explanations.
+- Highlight key concepts and definitions.
+- Bullet points preferred.
+- Include anything important that was said.
+
+Lecture Segment:
+------------
+${chunk}
+------------`
+          : `You are assisting in summarizing a meeting. Summarize the following part of a meeting transcript in ${lang}:
 
 Instructions:
 - Focus on main points, key discussions, and important actions mentioned.
@@ -81,7 +96,21 @@ ${chunk}
     if (summaries.length === 1) {
       return summaries[0];
     } else {
-      const combinePrompt = `You are an expert meeting assistant. Create a professional, organized summary of the full meeting based on these partial summaries in ${lang}.
+      const combinePrompt =
+        mode === "study"
+          ? `You are an expert study assistant. Create a clear, organized study summary of the lecture based on these partial summaries in ${lang}.
+
+Instructions:
+- Provide a concise yet complete overview.
+- Organize information by topics.
+- Highlight key points and important details.
+- Include any critical explanations.
+
+Partial Summaries:
+------------
+${summaries.join("\n\n")}
+------------`
+          : `You are an expert meeting assistant. Create a professional, organized summary of the full meeting based on these partial summaries in ${lang}.
 
 Instructions:
 - Create a comprehensive yet concise summary
@@ -124,8 +153,21 @@ ${summaries.join("\n\n")}
     const langCode = detected.languages?.[0]?.language?.toLowerCase();
     const lang = WHISPER_LANG_MAP.get(langCode) ?? "English";
 
-    const mapPrompt = PromptTemplate.fromTemplate(`
-You are assisting in summarizing a meeting. Summarize the following part of a meeting transcript in ${lang}:
+    const mapPromptTemplate =
+      mode === "study"
+        ? `You are assisting a student in studying lecture notes. Summarize the following part of a lecture transcript in ${lang}:
+
+Instructions:
+- Capture all major points and explanations.
+- Highlight key concepts and definitions.
+- Bullet points preferred.
+- Include anything important that was said.
+
+Lecture Segment:
+------------
+{text}
+------------`
+        : `You are assisting in summarizing a meeting. Summarize the following part of a meeting transcript in ${lang}:
 
 Instructions:
 - Focus on main points, key discussions, and important actions mentioned.
@@ -136,10 +178,23 @@ Instructions:
 Meeting Segment:
 ------------
 {text}
-------------`);
+------------`;
 
-    const combinePrompt = PromptTemplate.fromTemplate(`
-You are an expert meeting assistant. Create a professional, organized summary of the full meeting based on these partial summaries in ${lang}.
+    const combinePromptTemplate =
+      mode === "study"
+        ? `You are an expert study assistant. Create a clear, organized study summary of the lecture based on these partial summaries in ${lang}.
+
+Instructions:
+- Provide a concise yet complete overview.
+- Organize information by topics.
+- Highlight key points and important details.
+- Include any critical explanations.
+
+Partial Summaries:
+------------
+{text}
+------------`
+        : `You are an expert meeting assistant. Create a professional, organized summary of the full meeting based on these partial summaries in ${lang}.
 
 Instructions:
 - Create a comprehensive yet concise summary
@@ -149,7 +204,10 @@ Instructions:
 Partial Summaries:
 ------------
 {text}
-------------`);
+------------`;
+
+    const mapPrompt = PromptTemplate.fromTemplate(mapPromptTemplate);
+    const combinePrompt = PromptTemplate.fromTemplate(combinePromptTemplate);
 
     const mapChain = mapPrompt.pipe(model).pipe(async (res: any) => (res.content as string).trim());
     const combineChain = combinePrompt.pipe(model).pipe(async (res: any) => (res.content as string).trim());
