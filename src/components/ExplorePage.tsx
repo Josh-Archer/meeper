@@ -50,16 +50,17 @@ export default function ExplorePage({ recordId }: { recordId: string }) {
       .finally(() => setLoading(false));
   }, [fetchRecord]);
 
-  const generateSummary = useCallback(async () => {
-    if (!record) return;
+    const generateSummary = useCallback(async () => {
+      if (!record) return;
 
     if (generatingSummary) return;
     setGeneratingSummary(true);
 
-    try {
-      const { content } = record; // Get content from current record state
-      const summary = await getSummary(content);
-      await dbContents.update(record.id, { summary }).catch(console.error);
+      try {
+        const { content } = record; // Get content from current record state
+        const context = record.tab?.title ? `Meeting Title: ${record.tab.title}` : undefined;
+        const summary = await getSummary(content, context);
+        await dbContents.update(record.id, { summary }).catch(console.error);
 
       // Use functional update to ensure we have the latest state
       setRecord(prevRecord => {
@@ -71,8 +72,23 @@ export default function ExplorePage({ recordId }: { recordId: string }) {
       noApiKeyToast(err);
     }
 
-    setGeneratingSummary(false);
-  }, [record, generatingSummary, noApiKeyToast]);
+      setGeneratingSummary(false);
+    }, [record, generatingSummary, noApiKeyToast]);
+
+    const exportToObsidian = useCallback(() => {
+      if (!record?.summary) return;
+      const safeTitle = (record.tab.title || "meeting")
+        .replace(/[\\/:*?"<>|]/g, "-")
+        .slice(0, 100);
+      const fileName = `${safeTitle}-${new Date(record.createdAt).toISOString()}`;
+      const content = `# ${record.tab.title || "Meeting"}\n\n${record.summary}`;
+      const url = `obsidian://new?file=${encodeURIComponent(fileName)}&content=${encodeURIComponent(content)}`;
+      try {
+        chrome.tabs.create({ url });
+      } catch {
+        window.open(url, "_blank");
+      }
+    }, [record]);
 
   useEffect(() => {
     if (!generatingSummary) return;
@@ -131,24 +147,35 @@ export default function ExplorePage({ recordId }: { recordId: string }) {
                     <Markdown>{summary}</Markdown>
                   </p>
 
-                  <Button
-                    type="button"
-                    size="sm"
-                    disabled={generatingSummary}
-                    onClick={() => generateSummary()}
-                  >
-                    {!generatingSummary ? (
-                      <>
-                        <IndentIcon className="mr-2 h-4 w-4" />
-                        Generate once more
-                      </>
-                    ) : (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Generating...
-                      </>
-                    )}
-                  </Button>
+                  <div className="flex space-x-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={generatingSummary}
+                      onClick={() => generateSummary()}
+                    >
+                      {!generatingSummary ? (
+                        <>
+                          <IndentIcon className="mr-2 h-4 w-4" />
+                          Generate once more
+                        </>
+                      ) : (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Generating...
+                        </>
+                      )}
+                    </Button>
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={exportToObsidian}
+                    >
+                      Export to Obsidian
+                    </Button>
+                  </div>
                 </>
               ) : (
                 <Card>
@@ -174,7 +201,7 @@ export default function ExplorePage({ recordId }: { recordId: string }) {
                       {!generatingSummary ? (
                         <>
                           <IndentIcon className="mr-2 h-4 w-4" />
-                          Genearate summary
+                          Generate summary
                         </>
                       ) : (
                         <>
