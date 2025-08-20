@@ -133,6 +133,31 @@ export default function SettingsPage() {
           </div>
         )}
 
+        <h2>Summary Mode</h2>
+        <p>Choose the context used for summaries.</p>
+        {providerSettings && (
+          <div className="not-prose mb-6 space-y-4 p-4 border rounded-lg">
+            <div className="flex items-center space-x-4">
+              <Button
+                type="button"
+                variant={providerSettings.summaryMode === "meeting" ? "default" : "outline"}
+                onClick={() => updateSettings({ summaryMode: "meeting" })}
+                disabled={savingProvider}
+              >
+                Meeting
+              </Button>
+              <Button
+                type="button"
+                variant={providerSettings.summaryMode === "study" ? "default" : "outline"}
+                onClick={() => updateSettings({ summaryMode: "study" })}
+                disabled={savingProvider}
+              >
+                Study
+              </Button>
+            </div>
+          </div>
+        )}
+
         {providerSettings && (
           <div className="not-prose mb-10 space-y-4 p-4 border rounded-lg">
             <h3 className="mt-0">Transcription Provider (Whisper)</h3>

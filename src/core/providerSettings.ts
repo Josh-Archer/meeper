@@ -12,6 +12,8 @@ export interface LLMProviderSettings {
   transcriptionBaseUrl?: string; // e.g. http://localhost:8080
   /** Model for transcription (OpenAI: gpt-4o-transcribe | whisper-1; local: whatever server exposes) */
   transcriptionModel?: string;
+  /** Mode for summary prompts */
+  summaryMode?: "meeting" | "study";
 }
 
 const STORAGE_KEY = "_llm_provider_settings";
@@ -23,6 +25,7 @@ const DEFAULT_SETTINGS: LLMProviderSettings = {
   transcriptionProvider: "openai",
   transcriptionBaseUrl: "https://api.openai.com",
   transcriptionModel: "gpt-4o-transcribe",
+  summaryMode: "meeting",
 };
 
 export async function getLLMProviderSettings(): Promise<LLMProviderSettings> {
