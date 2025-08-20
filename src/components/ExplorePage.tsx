@@ -81,7 +81,10 @@ export default function ExplorePage({ recordId }: { recordId: string }) {
       const safeTitle = (record.tab.title || "meeting")
         .replace(/[\\/:*?"<>|]/g, "-")
         .slice(0, 100);
-      const noteName = `${safeTitle}-${new Date(record.createdAt).toISOString()}.md`;
+      const timestamp = new Date(record.createdAt)
+        .toISOString()
+        .replace(/[:.]/g, "-");
+      const noteName = `${safeTitle}-${timestamp}`;
       const content = `# ${record.tab.title || "Meeting"}\n\n${record.summary}`;
       const url = `obsidian://new?name=${encodeURIComponent(noteName)}&content=${encodeURIComponent(content)}`;
 
