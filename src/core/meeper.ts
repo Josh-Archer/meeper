@@ -36,6 +36,7 @@ export async function recordMeeper(
   onStateUpdate: (s: MeeperState) => void,
   onError: (err?: any) => void,
 ): Promise<MeeperRecorder> {
+  const providerSettings = await getLLMProviderSettings();
   // Obtain streams
   let { tabCaptureStream, micStream } = await getStreams(initialRecordType);
   let stream = mergeStreams(audioCtx, { tabCaptureStream, micStream });
@@ -184,6 +185,7 @@ export async function recordMeeper(
       stream,
       audioCtx,
       onAudio,
+      mode: providerSettings.transcriptionMode || "stream",
     });
   };
 

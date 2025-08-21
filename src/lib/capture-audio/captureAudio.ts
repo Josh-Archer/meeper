@@ -6,12 +6,31 @@ export function captureAudio({
   audioCtx,
   onAudio,
   minChunkDuration = 5_000,
+  mode = "stream",
 }: {
   stream: MediaStream;
   audioCtx: AudioContext;
   onAudio: (f: File) => void;
   minChunkDuration?: number;
+  mode?: "stream" | "chunks";
 }) {
+  if (mode === "chunks") {
+    const chunks: Blob[] = [];
+    const stop = recordAudio({
+      stream,
+      onDataAvailable: (evt: BlobEvent) => chunks.push(evt.data),
+      onError: console.error,
+    });
+
+    return () => {
+      stop();
+      if (!chunks.length) return;
+      const blob = new Blob(chunks, { type: "audio/webm;codecs=opus" });
+      const file = new File([blob], "meeper_chunk.webm", { type: "audio/webm" });
+      onAudio(file);
+    };
+  }
+
   let startedAt: number;
   let chunks: Blob[] = [];
   let stopRecord: (() => void) | undefined;
@@ -71,5 +90,8 @@ export function captureAudio({
   return () => {
     stopSpeechDetect();
     stopRecord?.();
+    if (chunks.length) {
+      releaseAudio();
+    }
   };
 }

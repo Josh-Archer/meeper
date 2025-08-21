@@ -12,6 +12,8 @@ export interface LLMProviderSettings {
   transcriptionBaseUrl?: string; // e.g. http://localhost:8080
   /** Model for transcription (OpenAI: gpt-4o-transcribe | whisper-1; local: whatever server exposes) */
   transcriptionModel?: string;
+  /** Whether to send audio to Whisper as a continuous stream or in chunks */
+  transcriptionMode?: "stream" | "chunks";
   /** Mode for summary prompts */
   summaryMode?: "meeting" | "study";
 }
@@ -25,6 +27,7 @@ const DEFAULT_SETTINGS: LLMProviderSettings = {
   transcriptionProvider: "openai",
   transcriptionBaseUrl: "https://api.openai.com",
   transcriptionModel: "gpt-4o-transcribe",
+  transcriptionMode: "stream",
   summaryMode: "meeting",
 };
 

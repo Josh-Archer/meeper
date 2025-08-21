@@ -209,6 +209,30 @@ export default function SettingsPage() {
           </div>
         )}
 
+        {providerSettings && (
+          <div className="not-prose mb-10 space-y-4 p-4 border rounded-lg">
+            <h3 className="mt-0">Transcription Mode</h3>
+            <div className="flex items-center space-x-4">
+              <Button
+                type="button"
+                variant={providerSettings.transcriptionMode === "stream" ? "default" : "outline"}
+                onClick={() => updateSettings({ transcriptionMode: "stream" })}
+                disabled={savingProvider}
+              >
+                Stream
+              </Button>
+              <Button
+                type="button"
+                variant={providerSettings.transcriptionMode === "chunks" ? "default" : "outline"}
+                onClick={() => updateSettings({ transcriptionMode: "chunks" })}
+                disabled={savingProvider}
+              >
+                Chunks
+              </Button>
+            </div>
+          </div>
+        )}
+
         {WEBSITE_URL && (
           <>
             <h2>Links</h2>
