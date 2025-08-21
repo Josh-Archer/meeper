@@ -22,6 +22,7 @@ Meeper is an open-source browser extension that serves as your secretary for any
 
 - 🎛️ Supports running transcriptions simultaneously from multiple tabs.
 
+
 - 🌎 Multilingual support for diverse language requirements.
 
 - 📠 History is stored directly on the local machine.

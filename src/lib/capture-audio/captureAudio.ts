@@ -5,50 +5,26 @@ export function captureAudio({
   stream,
   audioCtx,
   onAudio,
-  minChunkDuration = 5_000,
+  silenceDuration = 10_000,
 }: {
   stream: MediaStream;
   audioCtx: AudioContext;
   onAudio: (f: File) => void;
-  minChunkDuration?: number;
+  /** ms of silence before considering speech ended */
+  silenceDuration?: number;
 }) {
-  let startedAt: number;
-  let chunks: Blob[] = [];
   let stopRecord: (() => void) | undefined;
-  let releaseTimeout: ReturnType<typeof setTimeout>;
-
-  const onDataAvailable = async (evt: BlobEvent) => {
-    clearTimeout(releaseTimeout);
-    chunks.push(evt.data);
-
-    if (Date.now() - startedAt > minChunkDuration) {
-      releaseAudio();
-      return;
-    }
-
-    releaseTimeout = setTimeout(releaseAudio, 500);
-  };
-
-  const releaseAudio = () => {
-    const blob = new Blob(chunks, { type: "audio/webm;codecs=opus" });
-    const file = new File([blob], "meeper_chunk.webm", {
-      type: "audio/webm",
-    });
-
-    startedAt = 0;
-    chunks = [];
-
-    onAudio(file);
-  };
 
   const startRecord = () => {
-    if (!startedAt) {
-      startedAt = Date.now();
-    }
-
     stopRecord = recordAudio({
       stream,
-      onDataAvailable,
+      timeslice: 100,
+      onDataAvailable: (evt: BlobEvent) => {
+        const file = new File([evt.data], "meeper_chunk.webm", {
+          type: "audio/webm",
+        });
+        onAudio(file);
+      },
       onError: console.error,
     });
   };
@@ -56,15 +32,14 @@ export function captureAudio({
   const stopSpeechDetect = detectSpeechEnd({
     audioCtx,
     stream,
+    silenceDuration,
     onSpeechStart() {
       console.info("[Speech] started.");
-
       startRecord();
     },
     onSpeechEnd() {
       console.info("[Speech] end.");
-
-      setTimeout(stopRecord!, 30);
+      setTimeout(() => stopRecord?.(), 30);
     },
   });
 

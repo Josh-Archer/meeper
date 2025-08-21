@@ -36,6 +36,7 @@ export async function recordMeeper(
   onStateUpdate: (s: MeeperState) => void,
   onError: (err?: any) => void,
 ): Promise<MeeperRecorder> {
+  const providerSettings = await getLLMProviderSettings();
   // Obtain streams
   let { tabCaptureStream, micStream } = await getStreams(initialRecordType);
   let stream = mergeStreams(audioCtx, { tabCaptureStream, micStream });
@@ -142,7 +143,7 @@ export async function recordMeeper(
   };
 
   const onAudio = async (audioFile: File) => {
-    const settings = await getLLMProviderSettings();
+    const settings = providerSettings;
     const fullyLocal =
       settings.provider === "ollama" && settings.transcriptionProvider === "custom";
     const apiKey = fullyLocal
@@ -219,6 +220,8 @@ export async function recordMeeper(
       stream,
       audioCtx,
       onAudio,
+      silenceDuration:
+        providerSettings.summaryMode === "study" ? 5_000 : 10_000,
     });
   };
 
@@ -232,7 +235,6 @@ export async function recordMeeper(
 
   const stop = () => {
     pause();
-
     clearTimeout(checkTimeout);
     stopStreamTracks(stream);
   };
