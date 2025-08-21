@@ -6,6 +6,14 @@ import { Separator } from "./ui/separator";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import { Check } from "lucide-react";
 import { useApiKeyState } from "./ApiKeyDialog";
 import { useEffect, useState } from "react";
 import {
@@ -16,8 +24,14 @@ import {
 
 export default function SettingsPage() {
   const { apiKeyEntered, openApiKeyDialog } = useApiKeyState();
-  const [providerSettings, setProviderSettings] = useState<LLMProviderSettings | null>(null);
+  const [providerSettings, setProviderSettings] =
+    useState<LLMProviderSettings | null>(null);
   const [savingProvider, setSavingProvider] = useState(false);
+
+  const [ollamaUrlValid, setOllamaUrlValid] = useState<boolean | null>(null);
+  const [ollamaModels, setOllamaModels] = useState<string[]>([]);
+  const [trUrlValid, setTrUrlValid] = useState<boolean | null>(null);
+  const [trModels, setTrModels] = useState<string[]>([]);
 
   useEffect(() => {
     getLLMProviderSettings().then(setProviderSettings).catch(console.error);
@@ -32,6 +46,81 @@ export default function SettingsPage() {
     if (merged) setProviderSettings(merged);
     setSavingProvider(false);
   };
+
+  useEffect(() => {
+    if (!providerSettings || providerSettings.provider !== "ollama") return;
+    const url = providerSettings.ollamaBaseUrl?.replace(/\/$/, "");
+    if (!url) {
+      setOllamaUrlValid(null);
+      setOllamaModels([]);
+      return;
+    }
+    const ctrl = new AbortController();
+    const t = setTimeout(() => {
+      fetch(`${url}/api/tags`, { signal: ctrl.signal })
+        .then((r) => r.json())
+        .then((d) => {
+          const models =
+            (d?.models || []).map((m: any) => m.name || m).filter(Boolean);
+          setOllamaModels(models);
+          setOllamaUrlValid(true);
+        })
+        .catch(() => {
+          setOllamaUrlValid(false);
+          setOllamaModels([]);
+        });
+    }, 500);
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
+    };
+  }, [providerSettings?.ollamaBaseUrl, providerSettings?.provider]);
+
+  useEffect(() => {
+    if (
+      !providerSettings ||
+      providerSettings.transcriptionProvider !== "custom"
+    )
+      return;
+    const url = providerSettings.transcriptionBaseUrl?.replace(/\/$/, "");
+    if (!url) {
+      setTrUrlValid(null);
+      setTrModels([]);
+      return;
+    }
+    const ctrl = new AbortController();
+    const t = setTimeout(() => {
+      fetch(`${url}/v1/models`, { signal: ctrl.signal })
+        .then((r) => r.json())
+        .then((d) => {
+          const models = (d?.data || [])
+            .map((m: any) => m.id)
+            .filter(Boolean);
+          setTrModels(models);
+          setTrUrlValid(true);
+        })
+        .catch(() => {
+          setTrUrlValid(false);
+          setTrModels([]);
+        });
+    }, 500);
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
+    };
+  }, [
+    providerSettings?.transcriptionBaseUrl,
+    providerSettings?.transcriptionProvider,
+  ]);
+
+  const ollamaModelValid = !!(
+    providerSettings?.ollamaModel &&
+    ollamaModels.includes(providerSettings.ollamaModel)
+  );
+  const trModelValid = !!(
+    providerSettings?.transcriptionModel &&
+    trModels.includes(providerSettings.transcriptionModel)
+  );
 
   return (
     <div className={classNames("min-h-screen flex flex-col items-center")}>
@@ -98,22 +187,45 @@ export default function SettingsPage() {
             {providerSettings.provider === "ollama" && (
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <Label htmlFor="ollamaModel">Ollama Model</Label>
-                  <Input
-                    id="ollamaModel"
-                    value={providerSettings.ollamaModel || ""}
-                    placeholder="llama3.1"
-                    onChange={(e) => updateSettings({ ollamaModel: e.target.value })}
-                  />
+                  <Label htmlFor="ollamaBaseUrl">Ollama Base URL</Label>
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      id="ollamaBaseUrl"
+                      value={providerSettings.ollamaBaseUrl || ""}
+                      placeholder="http://localhost:11434"
+                      onChange={(e) =>
+                        updateSettings({ ollamaBaseUrl: e.target.value })
+                      }
+                      disabled={savingProvider}
+                    />
+                    {ollamaUrlValid && (
+                      <Check className="h-4 w-4 text-green-500" />
+                    )}
+                  </div>
                 </div>
                 <div>
-                  <Label htmlFor="ollamaBaseUrl">Ollama Base URL</Label>
-                  <Input
-                    id="ollamaBaseUrl"
-                    value={providerSettings.ollamaBaseUrl || ""}
-                    placeholder="http://localhost:11434"
-                    onChange={(e) => updateSettings({ ollamaBaseUrl: e.target.value })}
-                  />
+                  <Label htmlFor="ollamaModel">Ollama Model</Label>
+                  <div className="flex items-center space-x-2">
+                    <Select
+                      value={providerSettings.ollamaModel || ""}
+                      onValueChange={(v) => updateSettings({ ollamaModel: v })}
+                      disabled={!ollamaUrlValid || savingProvider}
+                    >
+                      <SelectTrigger id="ollamaModel">
+                        <SelectValue placeholder="Select model" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ollamaModels.map((m) => (
+                          <SelectItem key={m} value={m}>
+                            {m}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {ollamaModelValid && (
+                      <Check className="h-4 w-4 text-green-500" />
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -181,23 +293,48 @@ export default function SettingsPage() {
             </div>
             {providerSettings.transcriptionProvider === "custom" && (
               <div className="grid gap-4 md:grid-cols-3">
-                <div className="md:col-span-1">
-                  <Label htmlFor="trModel">Model</Label>
-                  <Input
-                    id="trModel"
-                    value={providerSettings.transcriptionModel || ""}
-                    placeholder="whisper-1"
-                    onChange={(e) => updateSettings({ transcriptionModel: e.target.value })}
-                  />
-                </div>
                 <div className="md:col-span-2">
                   <Label htmlFor="trBase">Base URL</Label>
-                  <Input
-                    id="trBase"
-                    value={providerSettings.transcriptionBaseUrl || ""}
-                    placeholder="http://localhost:8080"
-                    onChange={(e) => updateSettings({ transcriptionBaseUrl: e.target.value })}
-                  />
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      id="trBase"
+                      value={providerSettings.transcriptionBaseUrl || ""}
+                      placeholder="http://localhost:8080"
+                      onChange={(e) =>
+                        updateSettings({ transcriptionBaseUrl: e.target.value })
+                      }
+                      disabled={savingProvider}
+                    />
+                    {trUrlValid && (
+                      <Check className="h-4 w-4 text-green-500" />
+                    )}
+                  </div>
+                </div>
+                <div className="md:col-span-1">
+                  <Label htmlFor="trModel">Model</Label>
+                  <div className="flex items-center space-x-2">
+                    <Select
+                      value={providerSettings.transcriptionModel || ""}
+                      onValueChange={(v) =>
+                        updateSettings({ transcriptionModel: v })
+                      }
+                      disabled={!trUrlValid || savingProvider}
+                    >
+                      <SelectTrigger id="trModel">
+                        <SelectValue placeholder="Select model" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {trModels.map((m) => (
+                          <SelectItem key={m} value={m}>
+                            {m}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {trModelValid && (
+                      <Check className="h-4 w-4 text-green-500" />
+                    )}
+                  </div>
                 </div>
               </div>
             )}
