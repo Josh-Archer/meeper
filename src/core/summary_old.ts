@@ -60,7 +60,7 @@ export async function getSummary(content: string[]) {
     const openAIApiKey = await getOpenAiApiKey();
     model = new ChatOpenAI({
       modelName: "gpt-4o", // Use a stronger model if possible
-      openAIApiKey,
+      openAIApiKey: openAIApiKey ?? undefined,
       temperature: 0.2,
       timeout: 120_000,
     });
