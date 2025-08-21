@@ -39,6 +39,8 @@ export default function SettingsPage() {
 
   const updateSettings = async (patch: Partial<LLMProviderSettings>) => {
     if (!providerSettings) return;
+    const optimistic = { ...providerSettings, ...patch };
+    setProviderSettings(optimistic);
     setSavingProvider(true);
     const merged = await setLLMProviderSettings(patch).catch(console.error);
     if (merged) setProviderSettings(merged);
