@@ -31,3 +31,7 @@ export const dbContents = db.table<DBContent>("contents");
 export async function fetchRecords(limit: number) {
   return dbRecords.orderBy("createdAt").reverse().limit(limit).toArray();
 }
+
+export async function deleteRecord(id: string) {
+  await Promise.all([dbRecords.delete(id), dbContents.delete(id)]);
+}
