@@ -57,12 +57,12 @@ export async function getSummary(content: string[]) {
       return response.trim();
     };
 
-    // Process chunks individually
-    const summaries: string[] = [];
-    for (const chunk of chunks) {
-      const mapPrompt =
-        mode === "study"
-          ? `You are assisting a student in studying lecture notes. Summarize the following part of a lecture transcript in ${lang}:
+    // Process chunks in parallel
+    const summaries = await Promise.all(
+      chunks.map(async (chunk) => {
+        const mapPrompt =
+          mode === "study"
+            ? `You are assisting a student in studying lecture notes. Summarize the following part of a lecture transcript in ${lang}:
 
 Instructions:
 - Capture all major points and explanations.
@@ -74,7 +74,7 @@ Lecture Segment:
 ------------
 ${chunk}
 ------------`
-          : `You are assisting in summarizing a meeting. Summarize the following part of a meeting transcript in ${lang}:
+            : `You are assisting in summarizing a meeting. Summarize the following part of a meeting transcript in ${lang}:
 
 Instructions:
 - Focus on main points, key discussions, and important actions mentioned.
@@ -87,10 +87,11 @@ Meeting Segment:
 ${chunk}
 ------------`;
 
-      const summary = await callOllama(mapPrompt);
-      summaries.push(summary);
-      console.log("Chunk summary generated:", summary.substring(0, 100) + "...");
-    }
+        const summary = await callOllama(mapPrompt);
+        console.log("Chunk summary generated:", summary.substring(0, 100) + "...");
+        return summary;
+      }),
+    );
 
     // Combine summaries if there are multiple chunks
     if (summaries.length === 1) {
