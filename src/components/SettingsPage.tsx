@@ -13,14 +13,22 @@ import {
   setLLMProviderSettings,
   LLMProviderSettings,
 } from "../core/providerSettings";
+import {
+  ScreenshotSettings,
+  getScreenshotSettings,
+  setScreenshotSettings,
+} from "../core/screenshotSettings";
 
 export default function SettingsPage() {
   const { apiKeyEntered, openApiKeyDialog } = useApiKeyState();
   const [providerSettings, setProviderSettings] = useState<LLMProviderSettings | null>(null);
   const [savingProvider, setSavingProvider] = useState(false);
+  const [shotSettings, setShotSettings] = useState<ScreenshotSettings | null>(null);
+  const [savingShot, setSavingShot] = useState(false);
 
   useEffect(() => {
     getLLMProviderSettings().then(setProviderSettings).catch(console.error);
+    getScreenshotSettings().then(setShotSettings).catch(console.error);
   }, []);
 
   const updateSettings = async (patch: Partial<LLMProviderSettings>) => {
@@ -29,6 +37,14 @@ export default function SettingsPage() {
     const merged = await setLLMProviderSettings(patch).catch(console.error);
     if (merged) setProviderSettings(merged);
     setSavingProvider(false);
+  };
+
+  const updateShot = async (patch: Partial<ScreenshotSettings>) => {
+    if (!shotSettings) return;
+    setSavingShot(true);
+    const merged = await setScreenshotSettings(patch).catch(console.error);
+    if (merged) setShotSettings(merged);
+    setSavingShot(false);
   };
 
   return (
@@ -94,7 +110,7 @@ export default function SettingsPage() {
               </Button>
             </div>
             {providerSettings.provider === "ollama" && (
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-3">
                 <div>
                   <Label htmlFor="ollamaModel">Ollama Model</Label>
                   <Input
@@ -102,6 +118,18 @@ export default function SettingsPage() {
                     value={providerSettings.ollamaModel || ""}
                     placeholder="llama3.1"
                     onChange={(e) => updateSettings({ ollamaModel: e.target.value })}
+                    disabled={savingProvider}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="ollamaVisionModel">Vision Model</Label>
+                  <Input
+                    id="ollamaVisionModel"
+                    value={providerSettings.ollamaVisionModel || ""}
+                    placeholder="llava"
+                    onChange={(e) =>
+                      updateSettings({ ollamaVisionModel: e.target.value })
+                    }
                     disabled={savingProvider}
                   />
                 </div>
@@ -120,8 +148,9 @@ export default function SettingsPage() {
             {providerSettings.provider === "ollama" && (
               <div className="text-xs text-muted-foreground space-y-1">
                 <p>
-                  Ensure you have <code>ollama</code> running locally and the model pulled: e.g. run
-                  <code> ollama pull {providerSettings.ollamaModel}</code>.
+                  Ensure you have <code>ollama</code> running locally and the models pulled: e.g. run
+                  <code> ollama pull {providerSettings.ollamaModel}</code> and
+                  <code> ollama pull {providerSettings.ollamaVisionModel}</code>.
                 </p>
                 <p>
                   <strong>WSL Users:</strong> If using WSL, you may need to:
@@ -183,6 +212,24 @@ export default function SettingsPage() {
                 Provide an OpenAI-compatible endpoint exposing <code>/v1/audio/transcriptions</code>.
               </p>
             )}
+          </div>
+        )}
+
+        {shotSettings && (
+          <div className="not-prose mb-10 space-y-4 p-4 border rounded-lg">
+            <h3 className="mt-0">Screenshots</h3>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <Label htmlFor="shotInterval">Auto screenshot interval (sec, 0 disables)</Label>
+                <Input
+                  id="shotInterval"
+                  type="number"
+                  value={shotSettings.intervalSec}
+                  onChange={(e) => updateShot({ intervalSec: Number(e.target.value) })}
+                  disabled={savingShot}
+                />
+              </div>
+            </div>
           </div>
         )}
 

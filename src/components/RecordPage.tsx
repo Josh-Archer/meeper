@@ -28,6 +28,7 @@ export default function RecordPage({
     recording = false,
     content = [],
     recordType = initialRecordType,
+    screenshots = [],
   } = meeperState ?? {};
 
   const bottomRef = useRef<HTMLDivElement>(null);

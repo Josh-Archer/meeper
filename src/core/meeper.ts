@@ -1,6 +1,7 @@
 import { nanoid } from "nanoid";
 import { AxiosError } from "axios";
 import { Streams, captureAudio, mergeStreams } from "../lib/capture-audio";
+import { captureTabScreenshot } from "../lib/capture-screenshot";
 import { requestWhisperOpenaiApi } from "../lib/whisper/openaiApi";
 import { retry, promiseQueue } from "../lib/system";
 import { RecordType, TabInfo } from "./types";
@@ -9,6 +10,7 @@ import { getLangCode, syncTabRecordState } from "./session";
 import { getTabInfo } from "./utils";
 import { getOpenAiApiKey, NonWorkingApiKeyError } from "./openaiApiKey";
 import { getLLMProviderSettings } from "./providerSettings";
+import { getScreenshotSettings } from "./screenshotSettings";
 
 const audioCtx = new AudioContext();
 
@@ -20,12 +22,14 @@ export type MeeperRecorder = {
   pause: () => void;
   stop: () => void;
   toggleMic: () => void;
+  captureScreenshot: () => Promise<void>;
 };
 
 export type MeeperState = {
   recordType: RecordType;
   recording: boolean;
   content: string[];
+  screenshots: string[];
 };
 
 // TODO: Reimplement with MeeperState only. Avoid using both state and ref
@@ -65,11 +69,17 @@ export async function recordMeeper(
     dbContents.add({
       id: recordId,
       content: [],
+      screenshots: [],
     }),
   ]);
 
   const withQueue = promiseQueue();
   const content: string[] = [];
+  const screenshots: string[] = [];
+
+  const { intervalSec } = await getScreenshotSettings();
+  const screenshotIntervalMs = intervalSec > 0 ? intervalSec * 1000 : 0;
+  let screenshotTimer: ReturnType<typeof setInterval> | undefined;
 
   let recording = false;
   let stopCaptureAudio: (() => void) | undefined;
@@ -86,6 +96,7 @@ export async function recordMeeper(
       recordType: getCurrentRecordType(),
       recording,
       content,
+      screenshots,
     });
 
     syncTabRecordState({
@@ -185,6 +196,12 @@ export async function recordMeeper(
       audioCtx,
       onAudio,
     });
+
+    if (screenshotIntervalMs > 0 && !screenshotTimer) {
+      screenshotTimer = setInterval(() => {
+        captureScreenshot().catch(console.error);
+      }, screenshotIntervalMs);
+    }
   };
 
   const pause = () => {
@@ -193,6 +210,11 @@ export async function recordMeeper(
     dispatch();
 
     stopCaptureAudio?.();
+
+     if (screenshotTimer) {
+      clearInterval(screenshotTimer);
+      screenshotTimer = undefined;
+    }
   };
 
   const stop = () => {
@@ -200,6 +222,11 @@ export async function recordMeeper(
 
     clearTimeout(checkTimeout);
     stopStreamTracks(stream);
+
+    if (screenshotTimer) {
+      clearInterval(screenshotTimer);
+      screenshotTimer = undefined;
+    }
   };
 
   let micEnabled = getCurrentRecordType() !== RecordType.StereoOnly;
@@ -286,6 +313,17 @@ export async function recordMeeper(
     }
   });
 
+  const captureScreenshot = async () => {
+    try {
+      const shot = await captureTabScreenshot(tabId);
+      screenshots.push(shot);
+      dispatch();
+      await dbContents.update(recordId, { screenshots }).catch(console.error);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const meeper: MeeperRecorder = {
     recordId,
     tab,
@@ -294,6 +332,7 @@ export async function recordMeeper(
     pause,
     stop,
     toggleMic,
+    captureScreenshot,
   };
 
   chrome.tabs.onUpdated.addListener(

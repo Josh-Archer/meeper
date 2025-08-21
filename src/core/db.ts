@@ -17,6 +17,7 @@ export interface DBContent {
   id: string;
   content: string[];
   summary?: string;
+  screenshots?: string[];
   // audios?: Blob[];
 }
 

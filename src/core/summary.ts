@@ -4,11 +4,12 @@ import { PromptTemplate } from "@langchain/core/prompts";
 import { RunnableSequence } from "@langchain/core/runnables";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import { getOpenAiApiKey } from "./openaiApiKey";
-import { getLLMProviderSettings } from "./providerSettings";
+import { getLLMProviderSettings, LLMProviderSettings } from "./providerSettings";
 import { WHISPER_LANG_MAP } from "../config/lang";
 
-export async function getSummary(content: string[]) {
+export async function getSummary(content: string[], screenshots: string[] = []) {
   const settings = await getLLMProviderSettings();
+  const screenshotDescriptions = await describeScreenshots(screenshots, settings);
 
   if (settings.provider === "ollama") {
     // Simplified Ollama implementation without LangChain complexity
@@ -20,7 +21,10 @@ export async function getSummary(content: string[]) {
       chunkOverlap: 200,
     });
 
-    const contentFull = content.join("\n");
+    const contentFull = content.join("\n") +
+      (screenshotDescriptions.length
+        ? "\n\n" + screenshotDescriptions.map((d, i) => `Screenshot ${i + 1}: ${d}`).join("\n")
+        : "");
     const chunks = await textSplitter.splitText(contentFull);
 
     const detected = await chrome.i18n.detectLanguage(contentFull);
@@ -116,7 +120,10 @@ ${summaries.join("\n\n")}
       chunkOverlap: 200,
     });
 
-    const contentFull = content.join("\n");
+    const contentFull = content.join("\n") +
+      (screenshotDescriptions.length
+        ? "\n\n" + screenshotDescriptions.map((d, i) => `Screenshot ${i + 1}: ${d}`).join("\n")
+        : "");
     const chunks = await textSplitter.splitText(contentFull);
     const docs = chunks.map((text: string) => ({ pageContent: text }));
 
@@ -167,5 +174,68 @@ Partial Summaries:
 
     const finalSummary = await summarizationChain.invoke(docs);
     return finalSummary;
+  }
+}
+
+async function describeScreenshots(
+  shots: string[],
+  settings: LLMProviderSettings,
+): Promise<string[]> {
+  const out: string[] = [];
+  for (const shot of shots) {
+    try {
+      const d = await describeImage(shot, settings);
+      if (d) out.push(d);
+    } catch (err) {
+      console.error("describeImage failed", err);
+    }
+  }
+  return out;
+}
+
+async function describeImage(
+  image: string,
+  settings: LLMProviderSettings,
+): Promise<string> {
+  if (settings.provider === "ollama") {
+    const model = settings.ollamaVisionModel || "llava";
+    const baseUrl = (settings.ollamaBaseUrl || "http://localhost:11434").replace(/\/$/, "");
+    const body = {
+      model,
+      prompt: "Describe the image briefly.",
+      images: [image.replace(/^data:image\/\w+;base64,/, "")],
+      stream: false,
+    } as any;
+    const res = await fetch(`${baseUrl}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const json = await res.json().catch(() => ({}));
+    return (json.response ?? json.message ?? "").trim();
+  } else {
+    const apiKey = await getOpenAiApiKey();
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "Describe the image briefly." },
+              { type: "image_url", image_url: { url: image } },
+            ],
+          },
+        ],
+        max_tokens: 150,
+      }),
+    });
+    const json = await res.json().catch(() => ({}));
+    return json.choices?.[0]?.message?.content?.trim() ?? "";
   }
 }

@@ -57,8 +57,8 @@ export default function ExplorePage({ recordId }: { recordId: string }) {
     setGeneratingSummary(true);
 
     try {
-      const { content } = record; // Get content from current record state
-      const summary = await getSummary(content);
+      const { content, screenshots = [] } = record; // Get content from current record state
+      const summary = await getSummary(content, screenshots);
       await dbContents.update(record.id, { summary }).catch(console.error);
 
       // Use functional update to ensure we have the latest state
@@ -195,6 +195,20 @@ export default function ExplorePage({ recordId }: { recordId: string }) {
               {content.map((item, i) => (
                 <p key={i}>{item}</p>
               ))}
+
+              {record.screenshots?.length ? (
+                <>
+                  <h2>Screenshots</h2>
+                  {record.screenshots.map((src, i) => (
+                    <img
+                      key={i}
+                      src={src}
+                      alt={`screenshot ${i + 1}`}
+                      className="my-2 border rounded"
+                    />
+                  ))}
+                </>
+              ) : null}
             </>
           ) : (
             "No content."

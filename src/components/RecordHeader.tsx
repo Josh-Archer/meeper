@@ -62,6 +62,7 @@ export default function RecordHeader({
         start={meeper.start}
         pause={meeper.pause}
         stop={meeper.stop}
+        captureScreenshot={meeper.captureScreenshot}
       />
     </div>
   );

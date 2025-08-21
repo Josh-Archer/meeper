@@ -4,6 +4,8 @@ export interface LLMProviderSettings {
   provider: LLMProvider;
   /** Ollama model name (e.g. llama3.1, mistral, qwen2, phi4, etc.) */
   ollamaModel?: string;
+  /** Ollama model for image understanding (e.g. llava) */
+  ollamaVisionModel?: string;
   /** Base URL of the Ollama server */
   ollamaBaseUrl?: string;
   /** Transcription provider: openai cloud or custom OpenAI-compatible (local) */
@@ -19,6 +21,7 @@ const STORAGE_KEY = "_llm_provider_settings";
 const DEFAULT_SETTINGS: LLMProviderSettings = {
   provider: "openai",
   ollamaModel: "llama3.1", // default baseline
+  ollamaVisionModel: "llava", // default vision model
   ollamaBaseUrl: "http://localhost:11434",
   transcriptionProvider: "openai",
   transcriptionBaseUrl: "https://api.openai.com",

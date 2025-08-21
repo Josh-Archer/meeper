@@ -58,6 +58,9 @@ export async function getSummary(content: string[]) {
     };
   } else {
     const openAIApiKey = await getOpenAiApiKey();
+    if (!openAIApiKey) {
+      throw new Error("OpenAI API key is required");
+    }
     model = new ChatOpenAI({
       modelName: "gpt-4o", // Use a stronger model if possible
       openAIApiKey,
