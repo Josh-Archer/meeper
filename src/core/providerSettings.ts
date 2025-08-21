@@ -14,6 +14,8 @@ export interface LLMProviderSettings {
   transcriptionModel?: string;
   /** Mode for summary prompts */
   summaryMode?: "meeting" | "study";
+  /** Try to detect video/header title and use it for transcripts */
+  useVideoTitle?: boolean;
 }
 
 const STORAGE_KEY = "_llm_provider_settings";
@@ -26,6 +28,7 @@ const DEFAULT_SETTINGS: LLMProviderSettings = {
   transcriptionBaseUrl: "https://api.openai.com",
   transcriptionModel: "gpt-4o-transcribe",
   summaryMode: "meeting",
+  useVideoTitle: true,
 };
 
 export async function getLLMProviderSettings(): Promise<LLMProviderSettings> {
