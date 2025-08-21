@@ -43,7 +43,42 @@ export async function recordMeeper(
   // Get this tab
   const tabInstance = await chrome.tabs.get(tabId);
   const tabIndex = tabInstance.index;
-  const tab = getTabInfo(tabInstance);
+  const settings = await getLLMProviderSettings();
+  let tab = getTabInfo(tabInstance);
+  if (settings.useVideoTitle) {
+    try {
+      const [{ result: detected }] = await chrome.scripting.executeScript({
+        target: { tabId },
+        func: () => {
+          const findHeading = (el: Element | null): string | null => {
+            while (el) {
+              let sib = el.previousElementSibling;
+              while (sib) {
+                if (/^H[1-6]$/.test(sib.tagName) && sib.textContent) {
+                  return sib.textContent.trim();
+                }
+                sib = sib.previousElementSibling;
+              }
+              el = el.parentElement;
+            }
+            return null;
+          };
+          const video = document.querySelector("video");
+          let title = video ? findHeading(video) : null;
+          if (!title) {
+            const header = document.querySelector("h1, h2");
+            title = header?.textContent?.trim() || document.title;
+          }
+          return title;
+        },
+      });
+      if (detected && typeof detected === "string" && detected.trim()) {
+        tab.title = detected.trim();
+      }
+    } catch (err) {
+      console.warn(err);
+    }
+  }
 
   const currentTab = await chrome.tabs.getCurrent();
   const recordTabId = currentTab?.id;

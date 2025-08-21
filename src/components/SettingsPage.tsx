@@ -346,6 +346,26 @@ export default function SettingsPage() {
           </div>
         )}
 
+        {providerSettings && (
+          <div className="not-prose mb-10 space-y-2 p-4 border rounded-lg">
+            <h3 className="mt-0">Titles</h3>
+            <div className="flex items-center space-x-2">
+              <input
+                id="useVideoTitle"
+                type="checkbox"
+                className="h-4 w-4"
+                checked={providerSettings.useVideoTitle !== false}
+                onChange={(e) =>
+                  updateSettings({ useVideoTitle: e.target.checked })
+                }
+              />
+              <Label htmlFor="useVideoTitle">
+                Use video/header title for transcripts
+              </Label>
+            </div>
+          </div>
+        )}
+
         {WEBSITE_URL && (
           <>
             <h2>Links</h2>
