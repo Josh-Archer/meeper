@@ -25,6 +25,8 @@ export default function SettingsPage() {
 
   const updateSettings = async (patch: Partial<LLMProviderSettings>) => {
     if (!providerSettings) return;
+    const optimistic = { ...providerSettings, ...patch };
+    setProviderSettings(optimistic);
     setSavingProvider(true);
     const merged = await setLLMProviderSettings(patch).catch(console.error);
     if (merged) setProviderSettings(merged);
@@ -102,7 +104,6 @@ export default function SettingsPage() {
                     value={providerSettings.ollamaModel || ""}
                     placeholder="llama3.1"
                     onChange={(e) => updateSettings({ ollamaModel: e.target.value })}
-                    disabled={savingProvider}
                   />
                 </div>
                 <div>
@@ -112,7 +113,6 @@ export default function SettingsPage() {
                     value={providerSettings.ollamaBaseUrl || ""}
                     placeholder="http://localhost:11434"
                     onChange={(e) => updateSettings({ ollamaBaseUrl: e.target.value })}
-                    disabled={savingProvider}
                   />
                 </div>
               </div>
@@ -188,7 +188,6 @@ export default function SettingsPage() {
                     value={providerSettings.transcriptionModel || ""}
                     placeholder="whisper-1"
                     onChange={(e) => updateSettings({ transcriptionModel: e.target.value })}
-                    disabled={savingProvider}
                   />
                 </div>
                 <div className="md:col-span-2">
@@ -198,7 +197,6 @@ export default function SettingsPage() {
                     value={providerSettings.transcriptionBaseUrl || ""}
                     placeholder="http://localhost:8080"
                     onChange={(e) => updateSettings({ transcriptionBaseUrl: e.target.value })}
-                    disabled={savingProvider}
                   />
                 </div>
               </div>
