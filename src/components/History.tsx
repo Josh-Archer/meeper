@@ -1,9 +1,9 @@
 import { memo, useEffect, useRef, useState } from "react";
 import classNames from "clsx";
 import { useLiveQuery } from "dexie-react-hooks";
-import { ChevronRightIcon, ScrollTextIcon } from "lucide-react";
+import { ChevronRightIcon, ScrollTextIcon, Trash2Icon } from "lucide-react";
 
-import { DBRecord, fetchRecords } from "../core/db";
+import { DBRecord, fetchRecords, deleteRecord } from "../core/db";
 import { buildMainURL } from "../config/extUrl";
 
 import TabAvatar from "./TabAvatar";
@@ -30,6 +30,12 @@ const HistoryItem = memo(
         url: buildMainURL(`/explore/${id}`),
         active: true,
       });
+    };
+
+    const handleDelete = async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!confirm("Delete this transcript?")) return;
+      await deleteRecord(id);
     };
 
     return (
@@ -91,18 +97,23 @@ const HistoryItem = memo(
               </div>
             </div>
 
-            <div>
-              <ChevronRightIcon
-                className={classNames(
-                  "text-muted-foreground",
-                  "w-6 h-auto",
-                  "absolute right-2.5 top-1/2 -translate-y-1/2",
-                  "transition",
-                  "group-hover:translate-x-0 group-hover:opacity-100",
-                  "-translate-x-1.5 opacity-0"
-                )}
-              />
-            </div>
+            <span
+              className={classNames(
+                "absolute right-2.5 top-1/2 -translate-y-1/2",
+                "flex items-center space-x-2",
+                "transition",
+                "group-hover:translate-x-0 group-hover:opacity-100",
+                "-translate-x-1.5 opacity-0"
+              )}
+            >
+              <span
+                className="cursor-pointer text-muted-foreground hover:text-destructive"
+                onClick={handleDelete}
+              >
+                <Trash2Icon className="w-4 h-4" />
+              </span>
+              <ChevronRightIcon className="text-muted-foreground w-6 h-auto" />
+            </span>
           </div>
         </button>
 
