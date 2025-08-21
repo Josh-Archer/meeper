@@ -22,7 +22,7 @@ Meeper is an open-source browser extension that serves as your secretary for any
 
 - 🎛️ Supports running transcriptions simultaneously from multiple tabs.
 
-- 🔀 Choose between streaming or chunk-based transcription modes.
+- 🔀 Choose between streaming or chunk-based transcription modes; streaming uses a WebSocket for continuous audio while chunk mode updates about once a second.
 
 - 🌎 Multilingual support for diverse language requirements.
 

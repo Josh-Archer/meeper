@@ -74,6 +74,7 @@ export async function recordMeeper(
 
   let recording = false;
   let stopCaptureAudio: (() => void) | undefined;
+  let ws: WebSocket | undefined;
   let checkTimeout: ReturnType<typeof setTimeout>;
 
   const getCurrentRecordType = () => {
@@ -108,7 +109,14 @@ export async function recordMeeper(
   };
 
   const onAudio = async (audioFile: File) => {
-    const settings = await getLLMProviderSettings();
+    if (providerSettings.transcriptionMode === "stream") {
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(await audioFile.arrayBuffer());
+      }
+      return;
+    }
+
+    const settings = providerSettings;
     const fullyLocal =
       settings.provider === "ollama" && settings.transcriptionProvider === "custom";
     const apiKey = fullyLocal
@@ -181,6 +189,44 @@ export async function recordMeeper(
     recording = true;
     dispatch();
 
+    if (providerSettings.transcriptionMode === "stream") {
+      (async () => {
+        const fullyLocal =
+          providerSettings.provider === "ollama" &&
+          providerSettings.transcriptionProvider === "custom";
+        const apiKey = fullyLocal
+          ? null
+          : await getOpenAiApiKey().catch(onError);
+        if (!apiKey && !fullyLocal) return;
+        const base = providerSettings.transcriptionBaseUrl || "";
+        let url = `${base.replace(/^http/, "ws")}/v1/realtime?model=${
+          providerSettings.transcriptionModel
+        }`;
+        if (apiKey) url += `&api_key=${apiKey}`;
+        ws = new WebSocket(url);
+        ws.onmessage = (evt) => {
+          const text = typeof evt.data === "string" ? evt.data : "";
+          if (!text) return;
+          const lastItem = content[content.length - 1]?.trim();
+          if (lastItem && lastItem.endsWith("...")) {
+            const lastItemWithoutThreeDot = lastItem.slice(
+              0,
+              lastItem.length - 3,
+            );
+            content[content.length - 1] = `${lastItemWithoutThreeDot} ${text}`;
+          } else {
+            content.push(text);
+          }
+          dispatch();
+          Promise.all([
+            dbRecords.update(recordId, { lastSyncAt: Date.now() }),
+            dbContents.update(recordId, { content }),
+          ]).catch(console.error);
+        };
+        ws.onerror = console.error;
+      })();
+    }
+
     stopCaptureAudio = captureAudio({
       stream,
       audioCtx,
@@ -199,7 +245,7 @@ export async function recordMeeper(
 
   const stop = () => {
     pause();
-
+    ws?.close();
     clearTimeout(checkTimeout);
     stopStreamTracks(stream);
   };

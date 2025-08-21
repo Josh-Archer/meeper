@@ -5,7 +5,7 @@ export function captureAudio({
   stream,
   audioCtx,
   onAudio,
-  minChunkDuration = 5_000,
+  minChunkDuration = 1_000,
   mode = "stream",
 }: {
   stream: MediaStream;
@@ -14,25 +14,26 @@ export function captureAudio({
   minChunkDuration?: number;
   mode?: "stream" | "chunks";
 }) {
-  if (mode === "chunks") {
-    const chunks: Blob[] = [];
+  if (mode === "stream") {
     const stop = recordAudio({
       stream,
-      onDataAvailable: (evt: BlobEvent) => chunks.push(evt.data),
+      timeslice: 250,
+      onDataAvailable: (evt: BlobEvent) => {
+        const file = new File([evt.data], `meeper_chunk.webm`, {
+          type: "audio/webm",
+        });
+        onAudio(file);
+      },
       onError: console.error,
     });
 
     return () => {
       stop();
-      if (!chunks.length) return;
-      const blob = new Blob(chunks, { type: "audio/webm;codecs=opus" });
-      const file = new File([blob], "meeper_chunk.webm", { type: "audio/webm" });
-      onAudio(file);
     };
   }
 
+  const chunks: Blob[] = [];
   let startedAt: number;
-  let chunks: Blob[] = [];
   let stopRecord: (() => void) | undefined;
   let releaseTimeout: ReturnType<typeof setTimeout>;
 
@@ -45,7 +46,7 @@ export function captureAudio({
       return;
     }
 
-    releaseTimeout = setTimeout(releaseAudio, 500);
+    releaseTimeout = setTimeout(releaseAudio, 250);
   };
 
   const releaseAudio = () => {
@@ -55,7 +56,7 @@ export function captureAudio({
     });
 
     startedAt = 0;
-    chunks = [];
+    chunks.length = 0;
 
     onAudio(file);
   };
@@ -67,6 +68,7 @@ export function captureAudio({
 
     stopRecord = recordAudio({
       stream,
+      timeslice: 250,
       onDataAvailable,
       onError: console.error,
     });
