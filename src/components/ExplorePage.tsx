@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import classNames from "clsx";
-import { Loader2, IndentIcon } from "lucide-react";
+import { Loader2, IndentIcon, Trash2Icon } from "lucide-react";
 import Markdown from "react-markdown";
 
 import { getSummary } from "../core/summary";
-import { DBContent, DBRecord, dbContents, dbRecords } from "../core/db";
+import { DBContent, DBRecord, dbContents, dbRecords, deleteRecord } from "../core/db";
 
 import {
   Card,
@@ -89,6 +89,13 @@ export default function ExplorePage({ recordId }: { recordId: string }) {
     }
   }, [generatingSummary]);
 
+  const handleDelete = useCallback(async () => {
+    if (!record) return;
+    if (!confirm("Delete this transcript?")) return;
+    await deleteRecord(record.id);
+    window.close();
+  }, [record]);
+
   if (fatalError) {
     return <FatalError error={fatalError} />;
   }
@@ -105,12 +112,20 @@ export default function ExplorePage({ recordId }: { recordId: string }) {
       <Header
         tab={tab}
         toolbar={
-          <div className="flex flex-col items-end justify-between">
-            <Badge variant="outline" className="rounded-sm">
-              {getPrettyDuration(createdAt, durationEndDate)}
-            </Badge>
-            <span className="mt-1 text-xs leading-none text-muted-foreground whitespace-nowrap">
-              <PrettyDate date={createdAt} />
+          <div className="flex items-center space-x-2">
+            <div className="flex flex-col items-end justify-between">
+              <Badge variant="outline" className="rounded-sm">
+                {getPrettyDuration(createdAt, durationEndDate)}
+              </Badge>
+              <span className="mt-1 text-xs leading-none text-muted-foreground whitespace-nowrap">
+                <PrettyDate date={createdAt} />
+              </span>
+            </div>
+            <span
+              className="cursor-pointer text-muted-foreground hover:text-destructive"
+              onClick={handleDelete}
+            >
+              <Trash2Icon className="w-5 h-5" />
             </span>
           </div>
         }
